@@ -76,3 +76,17 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+
+.center {
+  display: flex;
+  justify-content: center;    
+  align-items: center;
+}
+
+body {
+  background-image: url('../lib/assets/bg.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
