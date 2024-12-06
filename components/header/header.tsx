@@ -1,6 +1,7 @@
 import React from "react";
 import WalletComponent from "./wallet";
 import Link from "next/link";
+import Networkbadge from "../network-badge";
 
 const Header = () => {
   return (
@@ -9,6 +10,7 @@ const Header = () => {
         TD UX-INDEXER
       </Link>
       <div className="flex flex-row items-center space-x-4">
+        <Networkbadge />
         <WalletComponent />
       </div>
     </div>
