@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.trackedTokens = exports.firstBlock = exports.CHAIN_ID = exports.GATEWAY_SQD_URL = exports.RPC_URL_DRPC = exports.RPC_URL_BIS = exports.RPC_ANKR = exports.RPC_URL = exports.SHITCOIN = exports.UNI_ADDRESS = exports.GRT_ADDRESS = exports.USDC_CONTRACT_ADDRESS = exports.MULTICALL_ADDRESS = exports.WRAP_ADDRESS = void 0;
+exports.WRAP_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+exports.MULTICALL_ADDRESS = "0x5ba1e12693dc8f9c48aad8770482f4739beed696";
+exports.USDC_CONTRACT_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+exports.GRT_ADDRESS = "0xc944e90c64b2c07662a292be6244bdf05cda44a7";
+exports.UNI_ADDRESS = "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984";
+exports.SHITCOIN = "0x0be87729309b1cf91dc4be625f4f84e97c8cc8d5";
+exports.RPC_URL = "https://eth.llamarpc.com";
+exports.RPC_ANKR = "https://rpc.ankr.com/eth";
+exports.RPC_URL_BIS = "https://rpc.mevblocker.io";
+exports.RPC_URL_DRPC = "https://lb.drpc.org/ogrpc?network=ethereum&dkey=AhCqOFjE2EEttEDFzu1epzBMMpYHdLcR748ahlDYfw4q";
+exports.GATEWAY_SQD_URL = "https://v2.archive.subsquid.io/network/ethereum-mainnet";
+exports.CHAIN_ID = "1";
+exports.firstBlock = 18321767;
+exports.trackedTokens = [exports.SHITCOIN];

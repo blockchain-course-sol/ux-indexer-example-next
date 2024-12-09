@@ -1,6 +1,19 @@
-type Transfer @entity {
+type Token @entity {
+  # token address
   id: ID!
-  from: String! @index
-  to: String! @index
-  value: BigInt!
+  tokenAddress: String!
+  symbol: String!
+  name: String!
+  decimals: Int!
+  totalSupply: BigInt!
+  totalTransfers: Int!
+  holders: Int!
+}
+
+type Balance @entity {
+  id: ID!
+  wallet: String! @index
+  value: BigInt! @index
+  valueBD: Float! @index
+  lastUpdateblock: Int! @index
 }

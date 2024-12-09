@@ -35,32 +35,143 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const evm_processor_1 = require("@subsquid/evm-processor");
 const typeorm_store_1 = require("@subsquid/typeorm-store");
-const usdtAbi = __importStar(require("./abi/0xdAC17F958D2ee523a2206206994597C13D831ec7"));
+const usdcAbi = __importStar(require("./abi/usdc"));
 const model_1 = require("./model");
+const global_constant_1 = require("./utils/constants/global.constant");
+const token_1 = require("./utils/entities/token");
+const typeorm_1 = require("typeorm");
+const global_helper_1 = require("./utils/helpers/global.helper");
 const processor = new evm_processor_1.EvmBatchProcessor()
-    .setGateway("https://v2.archive.subsquid.io/network/ethereum-mainnet")
-    .setRpcEndpoint({
-    url: process.env.RPC_ETH_HTTP,
-    rateLimit: 10,
-})
+    .setGateway(global_constant_1.GATEWAY_SQD_URL)
+    .setRpcEndpoint(global_constant_1.RPC_URL_DRPC)
     .setFinalityConfirmation(75)
     .addLog({
-    address: ["0xdAC17F958D2ee523a2206206994597C13D831ec7"],
-    topic0: [usdtAbi.events.Transfer.topic],
+    range: { from: global_constant_1.firstBlock },
+    address: global_constant_1.trackedTokens,
+    topic0: [usdcAbi.events.Transfer.topic],
+})
+    .setFields({
+    log: {
+        transactionHash: true,
+    },
 });
-const db = new typeorm_store_1.TypeormDatabase();
+const db = new typeorm_store_1.TypeormDatabase({ supportHotBlocks: true });
+let isTokensInitialized = false;
+const decimals = new Map();
 processor.run(db, async (ctx) => {
-    const transfers = [];
+    if (!isTokensInitialized) {
+        await (0, token_1.inititliazeTokens)(ctx, global_constant_1.trackedTokens);
+        for (const tokenAddress of global_constant_1.trackedTokens) {
+            const token = await ctx.store.get(model_1.Token, tokenAddress);
+            if (!token) {
+                ctx.log.error(`Failed loading token at address: ${tokenAddress}`);
+                return;
+            }
+            decimals.set(tokenAddress, token.decimals);
+        }
+        isTokensInitialized = true;
+    }
+    const addresses = new Set();
+    const tokenStats = new Map();
+    for (const tokenAddress of global_constant_1.trackedTokens) {
+        tokenStats.set(tokenAddress, {
+            transferCount: 0,
+            initialHolderCount: 0,
+            finalHolderCount: 0,
+        });
+    }
     for (let block of ctx.blocks) {
         for (let log of block.logs) {
-            let { from, to, value } = usdtAbi.events.Transfer.decode(log);
-            transfers.push(new model_1.Transfer({
-                id: log.id,
-                from,
-                to,
-                value,
-            }));
+            if (global_constant_1.trackedTokens.includes(log.address)) {
+                const { from, to } = usdcAbi.events.Transfer.decode(log);
+                addresses.add(`${from}-${log.address}`);
+                addresses.add(`${to}-${log.address}`);
+                const stats = tokenStats.get(log.address);
+                if (stats) {
+                    stats.transferCount++;
+                }
+            }
         }
     }
-    await ctx.store.insert(transfers);
+    const existingBalances = await ctx.store.findBy(model_1.Balance, {
+        id: (0, typeorm_1.In)([...addresses]),
+    });
+    const balances = new Map();
+    for (const balance of existingBalances) {
+        balances.set(balance.id, balance);
+        const tokenAddress = balance.id.split("-")[1];
+        const stats = tokenStats.get(tokenAddress);
+        if (stats) {
+            if (balance.value > 0n) {
+                stats.initialHolderCount++;
+            }
+        }
+    }
+    for (let block of ctx.blocks) {
+        for (let log of block.logs) {
+            if (global_constant_1.trackedTokens.includes(log.address)) {
+                const { from, to, value } = usdcAbi.events.Transfer.decode(log);
+                const valueBigInt = BigInt(value.toString());
+                const tokenDecimals = decimals.get(log.address);
+                const fromId = `${from}-${log.address}`;
+                let fromBalance = balances.get(fromId);
+                if (!fromBalance) {
+                    fromBalance = new model_1.Balance({
+                        id: fromId,
+                        wallet: from,
+                        value: 0n,
+                        valueBD: 0,
+                        lastUpdateblock: block.header.height,
+                    });
+                    balances.set(fromId, fromBalance);
+                }
+                fromBalance.value = fromBalance.value - valueBigInt;
+                fromBalance.valueBD = (0, global_helper_1.calculateValueBD)(fromBalance.value, tokenDecimals, ctx);
+                fromBalance.lastUpdateblock = block.header.height;
+                const toId = `${to}-${log.address}`;
+                let toBalance = balances.get(toId);
+                if (!toBalance) {
+                    toBalance = new model_1.Balance({
+                        id: toId,
+                        wallet: to,
+                        value: 0n,
+                        valueBD: 0,
+                        lastUpdateblock: block.header.height,
+                    });
+                    balances.set(toId, toBalance);
+                }
+                toBalance.value = toBalance.value + valueBigInt;
+                toBalance.valueBD = (0, global_helper_1.calculateValueBD)(toBalance.value, tokenDecimals, ctx);
+                toBalance.lastUpdateblock = block.header.height;
+                if (fromBalance.value < 0n) {
+                    ctx.log
+                        .warn(`Negative balance detected at block ${block.header.height}:
+            From: ${from} Balance: ${fromBalance.value}
+            To: ${to} Balance: ${toBalance.value}
+            Transfer Value: ${value}
+          `);
+                }
+            }
+        }
+    }
+    for (const [id, balance] of balances) {
+        const tokenAddress = balance.id.split("-")[1];
+        const stats = tokenStats.get(tokenAddress);
+        if (stats) {
+            if (balance.value > 0n) {
+                stats.finalHolderCount++;
+            }
+        }
+    }
+    const tokensToUpdate = [];
+    for (const [tokenAddress, stats] of tokenStats.entries()) {
+        const token = await ctx.store.get(model_1.Token, tokenAddress);
+        if (!token)
+            continue;
+        token.totalTransfers += stats.transferCount;
+        token.holders += stats.finalHolderCount - stats.initialHolderCount;
+        tokensToUpdate.push(token);
+    }
+    await ctx.store.save(tokensToUpdate);
+    await ctx.store.save([...balances.values()]);
 });

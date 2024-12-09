@@ -9,33 +9,47 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Transfer = void 0;
+exports.Token = void 0;
 const typeorm_store_1 = require("@subsquid/typeorm-store");
-let Transfer = class Transfer {
+let Token = class Token {
     constructor(props) {
         Object.assign(this, props);
     }
 };
-exports.Transfer = Transfer;
+exports.Token = Token;
 __decorate([
     (0, typeorm_store_1.PrimaryColumn)(),
     __metadata("design:type", String)
-], Transfer.prototype, "id", void 0);
+], Token.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_store_1.Index)(),
     (0, typeorm_store_1.StringColumn)({ nullable: false }),
     __metadata("design:type", String)
-], Transfer.prototype, "from", void 0);
+], Token.prototype, "tokenAddress", void 0);
 __decorate([
-    (0, typeorm_store_1.Index)(),
     (0, typeorm_store_1.StringColumn)({ nullable: false }),
     __metadata("design:type", String)
-], Transfer.prototype, "to", void 0);
+], Token.prototype, "symbol", void 0);
+__decorate([
+    (0, typeorm_store_1.StringColumn)({ nullable: false }),
+    __metadata("design:type", String)
+], Token.prototype, "name", void 0);
+__decorate([
+    (0, typeorm_store_1.IntColumn)({ nullable: false }),
+    __metadata("design:type", Number)
+], Token.prototype, "decimals", void 0);
 __decorate([
     (0, typeorm_store_1.BigIntColumn)({ nullable: false }),
     __metadata("design:type", BigInt)
-], Transfer.prototype, "value", void 0);
-exports.Transfer = Transfer = __decorate([
+], Token.prototype, "totalSupply", void 0);
+__decorate([
+    (0, typeorm_store_1.IntColumn)({ nullable: false }),
+    __metadata("design:type", Number)
+], Token.prototype, "totalTransfers", void 0);
+__decorate([
+    (0, typeorm_store_1.IntColumn)({ nullable: false }),
+    __metadata("design:type", Number)
+], Token.prototype, "holders", void 0);
+exports.Token = Token = __decorate([
     (0, typeorm_store_1.Entity)(),
     __metadata("design:paramtypes", [Object])
-], Transfer);
+], Token);
