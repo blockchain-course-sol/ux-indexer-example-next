@@ -13,8 +13,6 @@ const Networkbadge = () => {
   }, [chainId]);
   const { switchChain } = useSwitchChain();
 
-  console.log(isRightNetwork, chainId);
-
   if (!isRightNetwork)
     return (
       <Badge
