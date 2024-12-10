@@ -43,7 +43,7 @@ const typeorm_1 = require("typeorm");
 const global_helper_1 = require("./utils/helpers/global.helper");
 const processor = new evm_processor_1.EvmBatchProcessor()
     .setGateway(global_constant_1.GATEWAY_SQD_URL)
-    .setRpcEndpoint(global_constant_1.RPC_URL_DRPC)
+    .setRpcEndpoint(global_constant_1.RPC_URL)
     .setFinalityConfirmation(75)
     .addLog({
     range: { from: global_constant_1.firstBlock },
@@ -113,36 +113,10 @@ processor.run(db, async (ctx) => {
                 const { from, to, value } = usdcAbi.events.Transfer.decode(log);
                 const valueBigInt = BigInt(value.toString());
                 const tokenDecimals = decimals.get(log.address);
-                const fromId = `${from}-${log.address}`;
-                let fromBalance = balances.get(fromId);
-                if (!fromBalance) {
-                    fromBalance = new model_1.Balance({
-                        id: fromId,
-                        wallet: from,
-                        value: 0n,
-                        valueBD: 0,
-                        lastUpdateblock: block.header.height,
-                    });
-                    balances.set(fromId, fromBalance);
-                }
-                fromBalance.value = fromBalance.value - valueBigInt;
-                fromBalance.valueBD = (0, global_helper_1.calculateValueBD)(fromBalance.value, tokenDecimals, ctx);
-                fromBalance.lastUpdateblock = block.header.height;
-                const toId = `${to}-${log.address}`;
-                let toBalance = balances.get(toId);
-                if (!toBalance) {
-                    toBalance = new model_1.Balance({
-                        id: toId,
-                        wallet: to,
-                        value: 0n,
-                        valueBD: 0,
-                        lastUpdateblock: block.header.height,
-                    });
-                    balances.set(toId, toBalance);
-                }
-                toBalance.value = toBalance.value + valueBigInt;
-                toBalance.valueBD = (0, global_helper_1.calculateValueBD)(toBalance.value, tokenDecimals, ctx);
-                toBalance.lastUpdateblock = block.header.height;
+                const fromBalance = (0, global_helper_1.getOrCreateBalance)(from, log.address, block.header.height, balances);
+                const toBalance = (0, global_helper_1.getOrCreateBalance)(to, log.address, block.header.height, balances);
+                (0, global_helper_1.processBalanceUpdate)(fromBalance, valueBigInt, false, block.header.height, tokenDecimals, ctx);
+                (0, global_helper_1.processBalanceUpdate)(toBalance, valueBigInt, true, block.header.height, tokenDecimals, ctx);
                 if (fromBalance.value < 0n) {
                     ctx.log
                         .warn(`Negative balance detected at block ${block.header.height}:
@@ -154,24 +128,8 @@ processor.run(db, async (ctx) => {
             }
         }
     }
-    for (const [id, balance] of balances) {
-        const tokenAddress = balance.id.split("-")[1];
-        const stats = tokenStats.get(tokenAddress);
-        if (stats) {
-            if (balance.value > 0n) {
-                stats.finalHolderCount++;
-            }
-        }
-    }
-    const tokensToUpdate = [];
-    for (const [tokenAddress, stats] of tokenStats.entries()) {
-        const token = await ctx.store.get(model_1.Token, tokenAddress);
-        if (!token)
-            continue;
-        token.totalTransfers += stats.transferCount;
-        token.holders += stats.finalHolderCount - stats.initialHolderCount;
-        tokensToUpdate.push(token);
-    }
+    (0, global_helper_1.processFinalHolderCount)(balances, tokenStats);
+    const tokensToUpdate = await (0, global_helper_1.getTokensToUpdate)(tokenStats, ctx);
     await ctx.store.save(tokensToUpdate);
     await ctx.store.save([...balances.values()]);
 });

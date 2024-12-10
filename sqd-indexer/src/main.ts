@@ -10,7 +10,13 @@ import {
 } from "./utils/constants/global.constant";
 import { inititliazeTokens } from "./utils/entities/token";
 import { In } from "typeorm";
-import { calculateValueBD } from "./utils/helpers/global.helper";
+import {
+  getOrCreateBalance,
+  getTokensToUpdate,
+  processBalanceUpdate,
+  processFinalHolderCount,
+} from "./utils/helpers/global.helper";
+import { TokenStats } from "./utils/types/global.type";
 
 const processor = new EvmBatchProcessor()
   .setGateway(GATEWAY_SQD_URL)
@@ -47,14 +53,7 @@ processor.run(db, async (ctx) => {
   }
 
   const addresses = new Set<string>();
-  const tokenStats = new Map<
-    string,
-    {
-      transferCount: number;
-      initialHolderCount: number;
-      finalHolderCount: number;
-    }
-  >();
+  const tokenStats = new Map<string, TokenStats>();
 
   for (const tokenAddress of trackedTokens) {
     tokenStats.set(tokenAddress, {
@@ -101,46 +100,35 @@ processor.run(db, async (ctx) => {
         const valueBigInt = BigInt(value.toString());
         const tokenDecimals = decimals.get(log.address) as number;
 
-        const fromId = `${from}-${log.address}`;
-        let fromBalance = balances.get(fromId);
-        if (!fromBalance) {
-          fromBalance = new Balance({
-            id: fromId,
-            wallet: from,
-            value: 0n,
-            valueBD: 0,
-            lastUpdateblock: block.header.height,
-          });
-          balances.set(fromId, fromBalance);
-        }
+        const fromBalance = getOrCreateBalance(
+          from,
+          log.address,
+          block.header.height,
+          balances
+        );
+        const toBalance = getOrCreateBalance(
+          to,
+          log.address,
+          block.header.height,
+          balances
+        );
 
-        fromBalance.value = fromBalance.value - valueBigInt;
-        fromBalance.valueBD = calculateValueBD(
-          fromBalance.value,
+        processBalanceUpdate(
+          fromBalance,
+          valueBigInt,
+          false,
+          block.header.height,
           tokenDecimals,
           ctx
         );
-        fromBalance.lastUpdateblock = block.header.height;
-
-        const toId = `${to}-${log.address}`;
-        let toBalance = balances.get(toId);
-        if (!toBalance) {
-          toBalance = new Balance({
-            id: toId,
-            wallet: to,
-            value: 0n,
-            valueBD: 0,
-            lastUpdateblock: block.header.height,
-          });
-          balances.set(toId, toBalance);
-        }
-        toBalance.value = toBalance.value + valueBigInt;
-        toBalance.valueBD = calculateValueBD(
-          toBalance.value,
+        processBalanceUpdate(
+          toBalance,
+          valueBigInt,
+          true,
+          block.header.height,
           tokenDecimals,
           ctx
         );
-        toBalance.lastUpdateblock = block.header.height;
 
         if (fromBalance.value < 0n) {
           ctx.log
@@ -154,25 +142,9 @@ processor.run(db, async (ctx) => {
     }
   }
 
-  for (const [id, balance] of balances) {
-    const tokenAddress = balance.id.split("-")[1];
-    const stats = tokenStats.get(tokenAddress);
-    if (stats) {
-      if (balance.value > 0n) {
-        stats.finalHolderCount++;
-      }
-    }
-  }
+  processFinalHolderCount(balances, tokenStats);
 
-  const tokensToUpdate: Token[] = [];
-  for (const [tokenAddress, stats] of tokenStats.entries()) {
-    const token = await ctx.store.get(Token, tokenAddress);
-    if (!token) continue;
-
-    token.totalTransfers += stats.transferCount;
-    token.holders += stats.finalHolderCount - stats.initialHolderCount;
-    tokensToUpdate.push(token);
-  }
+  const tokensToUpdate: Token[] = await getTokensToUpdate(tokenStats, ctx);
 
   await ctx.store.save(tokensToUpdate);
   await ctx.store.save([...balances.values()]);

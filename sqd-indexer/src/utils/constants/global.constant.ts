@@ -8,9 +8,11 @@ export const USDC_CONTRACT_ADDRESS =
 export const GRT_ADDRESS = "0xc944e90c64b2c07662a292be6244bdf05cda44a7";
 export const UNI_ADDRESS = "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984";
 
+export const UNCX_ADDRESS = "0xadb2437e6f65682b85f814fbc12fec0508a7b1d0";
+
 export const SHITCOIN = "0x0be87729309b1cf91dc4be625f4f84e97c8cc8d5";
 
-export const RPC_URL = "https://eth.llamarpc.com";
+export const RPC_URL = "";
 export const RPC_ANKR = "https://rpc.ankr.com/eth";
 export const RPC_URL_BIS = "https://rpc.mevblocker.io";
 export const RPC_URL_DRPC = "";
@@ -20,5 +22,5 @@ export const GATEWAY_SQD_URL =
 
 export const CHAIN_ID = "1";
 
-export const firstBlock = 18321767;
-export const trackedTokens = [SHITCOIN];
+export const firstBlock = 11055690;
+export const trackedTokens = [UNCX_ADDRESS];
