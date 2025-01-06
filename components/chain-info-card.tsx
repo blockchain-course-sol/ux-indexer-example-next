@@ -14,15 +14,12 @@ import Link from "next/link";
 const ChainInfoCard = () => {
   const { data: block } = useBlock({
     blockTag: "latest",
+    chainId: 1,
     watch: true,
   });
 
   const BlockHashDisplayed = useMemo(() => {
     return `${block?.hash.slice(0, 4)}...${block?.hash.slice(-6)}`;
-  }, [block]);
-
-  const chainId = useMemo(() => {
-    return block?.chainId;
   }, [block]);
 
   const gasUsed = useMemo(() => {
@@ -61,7 +58,7 @@ const ChainInfoCard = () => {
         </CardHeader>
         <CardContent>
           <p>
-            <span className="font-bold">Chain ID :</span> <span>{chainId}</span>
+            <span className="font-bold">Chain ID :</span> <span>{1}</span>
           </p>
           <p>
             <span className="font-bold">Block Number :</span>{" "}
